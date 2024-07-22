@@ -11,56 +11,56 @@ client = OpenAI(api_key=api_key)
 
 # Function to transcribe audio using Whisper
 def transcribe_audio(audio_file):
-    try:
-        transcription = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-        return transcription['text'] if isinstance(transcription, dict) else transcription.text
-    except Exception as e:
-        st.error(f"Error in transcription: {e}")
-        return None
+    transcription = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+    return transcription['text'] if isinstance(transcription, dict) else transcription.text
 
 # Function to summarize the transcription
 def abstract_summary_extraction(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
+        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message['content']
+    return response.choices[0].message.content
 
 # Function to extract key points
 def key_points_extraction(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
+        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message['content']
+    return response.choices[0].message.content
 
 # Function to extract action items
 def action_item_extraction(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
+        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message['content']
+    return response.choices[0].message.content
 
 # Function to perform sentiment analysis
 def sentiment_analysis(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
+        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message['content']
+    return response.choices[0].message.content
 
 # Function to generate meeting minutes
 def meeting_minutes(transcription, summary_prompt, key_points_prompt, action_items_prompt, sentiment_prompt):
@@ -95,8 +95,6 @@ def main():
     uploaded_file = st.file_uploader("Upload an MP3 file", type=["mp3"])
     if uploaded_file is not None:
         transcription = transcribe_audio(uploaded_file)
-        if transcription is None:
-            return
 
         st.subheader("Transcription")
         st.write(transcription)
