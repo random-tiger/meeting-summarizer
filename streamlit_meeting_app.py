@@ -4,6 +4,9 @@ from openai import OpenAI
 from docx import Document
 from io import BytesIO
 
+# Set the OpenAI API key
+openai.api_key = os.getenv('OPENAI_API_KEY')
+
 # Initialize OpenAI client
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
