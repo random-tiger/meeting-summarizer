@@ -5,10 +5,7 @@ from docx import Document
 from io import BytesIO
 
 # Check if the API key is set
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    st.error("OpenAI API key is not set. Please set the OPENAI_API_KEY environment variable.")
-    st.stop()
+api_key = st.secrets["OPENAI_API_KEY"]
 
 # Initialize OpenAI client
 client = OpenAI(api_key=api_key)
