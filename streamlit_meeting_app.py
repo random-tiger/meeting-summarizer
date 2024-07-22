@@ -4,15 +4,23 @@ from openai import OpenAI
 from docx import Document
 from io import BytesIO
 
+# Check if the API key is set
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    st.error("OpenAI API key is not set. Please set the OPENAI_API_KEY environment variable.")
+    st.stop()
+
 # Initialize OpenAI client
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
+client = OpenAI(api_key=api_key)
 
 # Function to transcribe audio using Whisper
 def transcribe_audio(audio_file):
-    transcription = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-    return transcription['text'] if isinstance(transcription, dict) else transcription.text
+    try:
+        transcription = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+        return transcription['text'] if isinstance(transcription, dict) else transcription.text
+    except Exception as e:
+        st.error(f"Error in transcription: {e}")
+        return None
 
 # Function to summarize the transcription
 def abstract_summary_extraction(transcription, custom_prompt):
@@ -91,6 +99,8 @@ def main():
     uploaded_file = st.file_uploader("Upload an MP3 file", type=["mp3"])
     if uploaded_file is not None:
         transcription = transcribe_audio(uploaded_file)
+        if transcription is None:
+            return
 
         st.subheader("Transcription")
         st.write(transcription)
