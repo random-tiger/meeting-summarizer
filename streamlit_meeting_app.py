@@ -4,9 +4,6 @@ from openai import OpenAI
 from docx import Document
 from io import BytesIO
 
-# Set the OpenAI API key
-openai.api_key = os.getenv('OPENAI_API_KEY')
-
 # Initialize OpenAI client
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
@@ -21,49 +18,45 @@ def transcribe_audio(audio_file):
 def abstract_summary_extraction(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
-        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message.content
+    return response.choices[0].message['content']
 
 # Function to extract key points
 def key_points_extraction(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
-        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message.content
+    return response.choices[0].message['content']
 
 # Function to extract action items
 def action_item_extraction(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
-        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message.content
+    return response.choices[0].message['content']
 
 # Function to perform sentiment analysis
 def sentiment_analysis(transcription, custom_prompt):
     response = client.chat.completions.create(
         model="gpt-4o",
-        temperature=0,
         messages=[
             {"role": "system", "content": custom_prompt},
             {"role": "user", "content": transcription}
         ]
     )
-    return response.choices[0].message.content
+    return response.choices[0].message['content']
 
 # Function to generate meeting minutes
 def meeting_minutes(transcription, summary_prompt, key_points_prompt, action_items_prompt, sentiment_prompt):
