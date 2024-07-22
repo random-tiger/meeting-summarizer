@@ -4,8 +4,15 @@ from openai import OpenAI
 from docx import Document
 from io import BytesIO
 
+# List all available secrets
+st.write("Available secrets:", list(st.secrets.keys()))
+
 # Check if the API key is set
-api_key = st.secrets["OPENAI_API_KEY"]
+try:
+    api_key = st.secrets["OPENAI_API_KEY"]
+    st.write("API Key loaded successfully!")
+except KeyError:
+    st.error("API key not found! Please check your secrets configuration.")
 
 # Initialize OpenAI client
 client = OpenAI(api_key=api_key)
