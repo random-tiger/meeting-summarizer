@@ -39,6 +39,33 @@ def save_as_docx(minutes):
     buffer.seek(0)
     return buffer
 
+# Function to convert video files to .mp3
+def convert_video_to_mp3(uploaded_file, suffix):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_video_file:
+        temp_video_file.write(uploaded_file.getbuffer())
+        temp_video_file_path = temp_video_file.name
+
+    video = mp.VideoFileClip(temp_video_file_path)
+
+    if video.audio is None:
+        st.error(f"The uploaded {suffix} file does not contain an audio track.")
+        return None
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as audio_file:
+        audio_file_path = audio_file.name
+
+    video.audio.write_audiofile(audio_file_path)
+    return audio_file_path
+
+# Function to read text from a .docx file
+def read_docx(file):
+    doc = docx.Document(file)
+    return "\n".join([para.text for para in doc.paragraphs])
+
+# Function to read text from a .txt file
+def read_txt(file):
+    return file.read().decode("utf-8")
+
 # Pre-canned prompts and their respective headings
 pre_canned_prompts = {
     "meeting_summary": {
@@ -83,100 +110,115 @@ pre_canned_prompts = {
 def main():
     st.title("Meeting Summarizer")
 
-    st.info("Upload an mp3 file to start!")
-    uploaded_file = st.file_uploader("Upload an MP3 file", type=["mp3"])
+    st.info("Upload an mp3, mp4, mov, docx, or txt file to start!")
+    uploaded_file = st.file_uploader("Upload an audio, video, or text file", type=["mp3", "mp4", "mov", "docx", "txt"])
     if uploaded_file is not None:
-        transcription = transcribe_audio(uploaded_file)
-        st.subheader("Transcription")
-        st.write(transcription)
+        transcription = None
 
-        st.info("Select what you'd like to create!")
-        summary_type = st.radio(
-            "Select the type of summary you want to generate:",
-            ("", "Meeting Summary", "User Research Synthesis"),
-            index=0
-        )
+        if uploaded_file.type in ["video/quicktime", "video/mp4"]:
+            suffix = ".mov" if uploaded_file.type == "video/quicktime" else ".mp4"
+            audio_file_path = convert_video_to_mp3(uploaded_file, suffix)
+            if audio_file_path is not None:
+                with open(audio_file_path, "rb") as f:
+                    transcription = transcribe_audio(f)
+        elif uploaded_file.type == "audio/mpeg":
+            transcription = transcribe_audio(uploaded_file)
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            transcription = read_docx(uploaded_file)
+        elif uploaded_file.type == "text/plain":
+            transcription = read_txt(uploaded_file)
 
-        if 'prompts' not in st.session_state:
-            st.session_state.prompts = []
+        if transcription:
+            st.subheader("Transcription")
+            st.write(transcription)
 
-        checkboxes = {}
-        if summary_type == "Meeting Summary":
-            st.markdown("### Meeting Summary Prompts")
-            st.info("Select the sections you'd like in your document!")
-            checkboxes = {
-                "summary": st.checkbox("Summary"),
-                "key_points": st.checkbox("Key Points"),
-                "action_items": st.checkbox("Action Items"),
-                "sentiment": st.checkbox("Sentiment Analysis")
-            }
+            st.info("Select what you'd like to create!")
+            summary_type = st.radio(
+                "Select the type of summary you want to generate:",
+                ("", "Meeting Summary", "User Research Synthesis"),
+                index=0
+            )
 
-        elif summary_type == "User Research Synthesis":
-            st.markdown("### User Research Synthesis Prompts")
-            st.info("Select the sections you'd like in your document!")
-            checkboxes = {
-                "summary": st.checkbox("Summary", key="user_summary"),
-                "biographical_info": st.checkbox("Biographical Info"),
-                "key_insights": st.checkbox("Key Insights"),
-                "recommendations": st.checkbox("Recommendations")
-            }
+            if 'prompts' not in st.session_state:
+                st.session_state.prompts = []
 
-        if any(checkboxes.values()):
-            st.info("Click 'Create GPT Tasks' to proceed")
-            if st.button("Create GPT Tasks"):
-                for key, checked in checkboxes.items():
-                    if checked:
-                        st.session_state.prompts.append({
-                            "prompt": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["prompt"],
-                            "model": "gpt-4o",
-                            "heading": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["heading"]
-                        })
-
-        for i, prompt_info in enumerate(st.session_state.prompts):
-            st.subheader(f"GPT Task {i+1} - {prompt_info['heading']}")
-            st.info("Update the pre-canned prompt to customize!")
-            prompt_info["model"] = st.text_input("Model", value=prompt_info["model"], key=f"model_{i}")
-            prompt_info["prompt"] = st.text_area("Prompt", value=prompt_info["prompt"], key=f"prompt_{i}")
-            if st.button("Remove GPT Task", key=f"remove_gpt_task_{i}"):
-                st.session_state.prompts.pop(i)
-                break
-
-        if st.session_state.prompts:
-            st.info("Click generate to create your document!")
-            st.markdown(
-                """
-                <style>
-                .blue-button button {
-                    background-color: #007BFF !important;
-                    color: white !important;
+            checkboxes = {}
+            if summary_type == "Meeting Summary":
+                st.markdown("### Meeting Summary Prompts")
+                st.info("Select the sections you'd like in your document!")
+                checkboxes = {
+                    "summary": st.checkbox("Summary"),
+                    "key_points": st.checkbox("Key Points"),
+                    "action_items": st.checkbox("Action Items"),
+                    "sentiment": st.checkbox("Sentiment Analysis")
                 }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-            if st.button("Generate", key="generate", help=None, on_click=None, disabled=False, use_container_width=False):
-                minutes = {}
-                for i, prompt_info in enumerate(st.session_state.prompts):
-                    task_key = prompt_info["heading"] if prompt_info["heading"] else f"Task {i+1}"
-                    minutes[task_key] = generate_response(transcription, prompt_info["model"], prompt_info["prompt"])
-                st.session_state.generated_minutes = minutes  # Store the generated minutes in session state
 
-        # Display generated minutes if they exist in session state
-        if 'generated_minutes' in st.session_state:
-            st.subheader("Meeting Minutes")
-            for key, value in st.session_state.generated_minutes.items():
-                st.write(f"**{key}**")
-                st.write(value)
+            elif summary_type == "User Research Synthesis":
+                st.markdown("### User Research Synthesis Prompts")
+                st.info("Select the sections you'd like in your document!")
+                checkboxes = {
+                    "summary": st.checkbox("Summary", key="user_summary"),
+                    "biographical_info": st.checkbox("Biographical Info"),
+                    "key_insights": st.checkbox("Key Insights"),
+                    "recommendations": st.checkbox("Recommendations")
+                }
 
-            docx_file = save_as_docx(st.session_state.generated_minutes)
+            if any(checkboxes.values()):
+                st.info("Click 'Create GPT Tasks' to proceed")
+                if st.button("Create GPT Tasks"):
+                    for key, checked in checkboxes.items():
+                        if checked:
+                            st.session_state.prompts.append({
+                                "prompt": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["prompt"],
+                                "model": "gpt-4o",
+                                "heading": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["heading"]
+                            })
 
-            st.info("Click download to get a docx file of your document!")
-            st.download_button(
-                label="Download Meeting Minutes",
-                data=docx_file,
-                file_name="meeting_minutes.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
+            for i, prompt_info in enumerate(st.session_state.prompts):
+                st.subheader(f"GPT Task {i+1} - {prompt_info['heading']}")
+                st.info("Update the pre-canned prompt to customize!")
+                prompt_info["model"] = st.text_input("Model", value=prompt_info["model"], key=f"model_{i}")
+                prompt_info["prompt"] = st.text_area("Prompt", value=prompt_info["prompt"], key=f"prompt_{i}")
+                if st.button("Remove GPT Task", key=f"remove_gpt_task_{i}"):
+                    st.session_state.prompts.pop(i)
+                    break
+
+            if st.session_state.prompts:
+                st.info("Click generate to create your document!")
+                st.markdown(
+                    """
+                    <style>
+                    .blue-button button {
+                        background-color: #007BFF !important;
+                        color: white !important;
+                    }
+                    </style>
+                    """,
+                    unsafe_allow_html=True
+                )
+                if st.button("Generate", key="generate", help=None, on_click=None, disabled=False, use_container_width=False):
+                    minutes = {}
+                    for i, prompt_info in enumerate(st.session_state.prompts):
+                        task_key = prompt_info["heading"] if prompt_info["heading"] else f"Task {i+1}"
+                        minutes[task_key] = generate_response(transcription, prompt_info["model"], prompt_info["prompt"])
+                    st.session_state.generated_minutes = minutes  # Store the generated minutes in session state
+
+            # Display generated minutes if they exist in session state
+            if 'generated_minutes' in st.session_state:
+                st.subheader("Meeting Minutes")
+                for key, value in st.session_state.generated_minutes.items():
+                    st.write(f"**{key}**")
+                    st.write(value)
+
+                docx_file = save_as_docx(st.session_state.generated_minutes)
+
+                st.info("Click download to get a docx file of your document!")
+                st.download_button(
+                    label="Download Meeting Minutes",
+                    data=docx_file,
+                    file_name="meeting_minutes.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
 
 if __name__ == "__main__":
     main()
