@@ -133,6 +133,7 @@ def main():
             transcription = read_txt(uploaded_file)
 
         if transcription:
+            st.session_state.transcription = transcription  # Store transcription in session state
             st.subheader("Transcription")
             st.write(transcription)
 
@@ -204,7 +205,7 @@ def main():
                     minutes = {}
                     for i, prompt_info in enumerate(st.session_state.prompts):
                         task_key = prompt_info["heading"] if prompt_info["heading"] else f"Task {i+1}"
-                        minutes[task_key] = generate_response(transcription, prompt_info["model"], prompt_info["prompt"])
+                        minutes[task_key] = generate_response(st.session_state.transcription, prompt_info["model"], prompt_info["prompt"])
                     st.session_state.generated_minutes = minutes  # Store the generated minutes in session state
 
             # Display generated minutes if they exist in session state
