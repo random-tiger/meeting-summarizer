@@ -2,3 +2,5 @@ streamlit
 openai
 python-docx
 streamlit-quill
+moviepy
+
