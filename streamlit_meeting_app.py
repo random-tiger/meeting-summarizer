@@ -6,7 +6,6 @@ from io import BytesIO
 import moviepy.editor as mp
 import tempfile
 import docx
-import codecs
 
 api_key = st.secrets["OPENAI_API_KEY"]
 
@@ -116,24 +115,24 @@ def main():
 
     st.info("Upload an mp3, mp4, mov, docx, or txt file to start!")
     uploaded_file = st.file_uploader("Upload an audio, video, or text file", type=["mp3", "mp4", "mov", "docx", "txt"])
+    
     if uploaded_file is not None:
-        transcription = None
+        if "transcription" not in st.session_state:
+            if uploaded_file.type in ["video/quicktime", "video/mp4"]:
+                suffix = ".mov" if uploaded_file.type == "video/quicktime" else ".mp4"
+                audio_file_path = convert_video_to_mp3(uploaded_file, suffix)
+                if audio_file_path is not None:
+                    with open(audio_file_path, "rb") as f:
+                        st.session_state.transcription = transcribe_audio(f)
+            elif uploaded_file.type == "audio/mpeg":
+                st.session_state.transcription = transcribe_audio(uploaded_file)
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                st.session_state.transcription = read_docx(uploaded_file)
+            elif uploaded_file.type == "text/plain":
+                st.session_state.transcription = read_txt(uploaded_file)
 
-        if uploaded_file.type in ["video/quicktime", "video/mp4"]:
-            suffix = ".mov" if uploaded_file.type == "video/quicktime" else ".mp4"
-            audio_file_path = convert_video_to_mp3(uploaded_file, suffix)
-            if audio_file_path is not None:
-                with open(audio_file_path, "rb") as f:
-                    transcription = transcribe_audio(f)
-        elif uploaded_file.type == "audio/mpeg":
-            transcription = transcribe_audio(uploaded_file)
-        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            transcription = read_docx(uploaded_file)
-        elif uploaded_file.type == "text/plain":
-            transcription = read_txt(uploaded_file)
-
-        if transcription:
-            st.session_state.transcription = transcription  # Store transcription in session state
+        if "transcription" in st.session_state:
+            transcription = st.session_state.transcription
             st.subheader("Transcription")
             st.write(transcription)
 
