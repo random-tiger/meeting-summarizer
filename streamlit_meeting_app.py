@@ -3,6 +3,10 @@ import os
 from openai import OpenAI
 from docx import Document
 from io import BytesIO
+import moviepy.editor as mp
+import tempfile
+import docx
+import codecs
 
 api_key = st.secrets["OPENAI_API_KEY"]
 
