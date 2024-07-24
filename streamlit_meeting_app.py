@@ -106,16 +106,42 @@ pre_canned_prompts = {
             "prompt": "You are a proficient AI with a specialty in identifying meaningful product opportunities. Based on the transcript, please identify product recommendations/opportunities.",
             "heading": "Recommendations"
         }
+    },
+    "action_items": {
+        "action_items": {
+            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely. Each task should be formatted as follows: Topic. Description of the task. Do not use sub-bullets.",
+            "heading": "Action Items"
+        }
     }
 }
 
 # Streamlit app
 def main():
-    st.title("Meeting Summarizer")
+    # Custom CSS to set app width and reduce gutter space
+    st.markdown(
+        """
+        <style>
+        .reportview-container .main .block-container {
+            padding-left: 0rem;
+            padding-right: 0rem;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        .css-18e3th9 {
+            flex: 1 1 100%;
+            width: 100%;
+            padding: 2rem 1rem 1rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.info("Upload an mp3, mp4, mov, docx, or txt file to start!")
-    uploaded_file = st.file_uploader("Upload an audio, video, or text file", type=["mp3", "mp4", "mov", "docx", "txt"])
-    
+    st.sidebar.title("Options")
+
+    st.sidebar.info("Upload an mp3, mp4, mov, docx, or txt file to start!")
+    uploaded_file = st.sidebar.file_uploader("Upload an audio, video, or text file", type=["mp3", "mp4", "mov", "docx", "txt"])
+
     if uploaded_file is not None:
         if "transcription" not in st.session_state:
             if uploaded_file.type in ["video/quicktime", "video/mp4"]:
@@ -133,13 +159,15 @@ def main():
 
         if "transcription" in st.session_state:
             transcription = st.session_state.transcription
-            st.subheader("Transcription")
-            st.write(transcription)
+            with st.expander("Transcription", expanded=True):
+                st.subheader("Transcription")
+                edited_transcription = st_quill(value=transcription, key='transcription_editor')
+                st.session_state.transcription = edited_transcription
 
-            st.info("Select what you'd like to create!")
-            summary_type = st.radio(
+            st.sidebar.info("Select what you'd like to create!")
+            summary_type = st.sidebar.radio(
                 "Select the type of summary you want to generate:",
-                ("", "Meeting Summary", "User Research Synthesis"),
+                ("", "Meeting Summary", "User Research Synthesis", "Action Items"),
                 index=0
             )
 
@@ -148,44 +176,55 @@ def main():
 
             checkboxes = {}
             if summary_type == "Meeting Summary":
-                st.markdown("### Meeting Summary Prompts")
-                st.info("Select the sections you'd like in your document!")
+                st.sidebar.markdown("### Meeting Summary Prompts")
+                st.sidebar.info("Select the sections you'd like in your document!")
                 checkboxes = {
-                    "summary": st.checkbox("Summary"),
-                    "key_points": st.checkbox("Key Points"),
-                    "action_items": st.checkbox("Action Items"),
-                    "sentiment": st.checkbox("Sentiment Analysis")
+                    "summary": st.sidebar.checkbox("Summary"),
+                    "key_points": st.sidebar.checkbox("Key Points"),
+                    "action_items": st.sidebar.checkbox("Action Items"),
+                    "sentiment": st.sidebar.checkbox("Sentiment Analysis")
                 }
 
             elif summary_type == "User Research Synthesis":
-                st.markdown("### User Research Synthesis Prompts")
-                st.info("Select the sections you'd like in your document!")
+                st.sidebar.markdown("### User Research Synthesis Prompts")
+                st.sidebar.info("Select the sections you'd like in your document!")
                 checkboxes = {
-                    "summary": st.checkbox("Summary", key="user_summary"),
-                    "biographical_info": st.checkbox("Biographical Info"),
-                    "key_insights": st.checkbox("Key Insights"),
-                    "recommendations": st.checkbox("Recommendations")
+                    "summary": st.sidebar.checkbox("Summary", key="user_summary"),
+                    "biographical_info": st.sidebar.checkbox("Biographical Info"),
+                    "key_insights": st.sidebar.checkbox("Key Insights"),
+                    "recommendations": st.sidebar.checkbox("Recommendations")
+                }
+
+            elif summary_type == "Action Items":
+                st.sidebar.markdown("### Action Items Prompt")
+                st.sidebar.info("Select the section to generate action items!")
+                checkboxes = {
+                    "action_items": st.sidebar.checkbox("Action Items", key="action_items")
                 }
 
             if any(checkboxes.values()):
-                st.info("Click 'Create GPT Tasks' to proceed")
-                if st.button("Create GPT Tasks"):
+                st.sidebar.info("Click 'Create GPT Tasks' to proceed")
+                if st.sidebar.button("Create GPT Tasks"):
                     for key, checked in checkboxes.items():
                         if checked:
-                            st.session_state.prompts.append({
-                                "prompt": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["prompt"],
-                                "model": "gpt-4o",
-                                "heading": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["heading"]
-                            })
+                            try:
+                                st.session_state.prompts.append({
+                                    "prompt": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["prompt"],
+                                    "model": "gpt-4o",
+                                    "heading": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["heading"]
+                                })
+                            except KeyError as e:
+                                st.error(f"KeyError: {e} - summary_type: {summary_type.lower().replace(' ', '_')}, key: {key}")
+                                st.stop()
 
             for i, prompt_info in enumerate(st.session_state.prompts):
-                st.subheader(f"GPT Task {i+1} - {prompt_info['heading']}")
-                st.info("Update the pre-canned prompt to customize!")
-                prompt_info["model"] = st.text_input("Model", value=prompt_info["model"], key=f"model_{i}")
-                prompt_info["prompt"] = st.text_area("Prompt", value=prompt_info["prompt"], key=f"prompt_{i}")
-                if st.button("Remove GPT Task", key=f"remove_gpt_task_{i}"):
-                    st.session_state.prompts.pop(i)
-                    break
+                with st.expander(f"GPT Task {i+1} - {prompt_info['heading']}", expanded=True):
+                    st.info("Update the pre-canned prompt to customize!")
+                    prompt_info["model"] = st.text_input("Model", value=prompt_info["model"], key=f"model_{i}")
+                    prompt_info["prompt"] = st.text_area("Prompt", value=prompt_info["prompt"], key=f"prompt_{i}")
+                    if st.button("Remove GPT Task", key=f"remove_gpt_task_{i}"):
+                        st.session_state.prompts.pop(i)
+                        break
 
             if st.session_state.prompts:
                 st.info("Click generate to create your document!")
@@ -209,20 +248,102 @@ def main():
 
             # Display generated minutes if they exist in session state
             if 'generated_minutes' in st.session_state:
-                st.subheader("Meeting Minutes")
-                for key, value in st.session_state.generated_minutes.items():
-                    st.write(f"**{key}**")
-                    st.write(value)
+                with st.expander("Generated Minutes", expanded=True):
+                    for key, value in st.session_state.generated_minutes.items():
+                        st.write(f"**{key}**")
+                        st.write(value)
 
-                docx_file = save_as_docx(st.session_state.generated_minutes)
+                    docx_file = save_as_docx(st.session_state.generated_minutes)
 
-                st.info("Click download to get a docx file of your document!")
-                st.download_button(
-                    label="Download Meeting Minutes",
-                    data=docx_file,
-                    file_name="meeting_minutes.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
+                    st.info("Click download to get a docx file of your document!")
+                    st.download_button(
+                        label="Download Meeting Minutes",
+                        data=docx_file,
+                        file_name="meeting_minutes.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+
+                if "Action Items" in st.session_state.generated_minutes:
+                    with st.expander("Action Items", expanded=True):
+                        st.subheader("Action Items")
+                        action_items = st.session_state.generated_minutes["Action Items"]
+                        st.info("Check boxes to generate documents from tasks!")
+                        action_items_list = action_items.split('\n')
+                        action_items_list = [item for item in action_items_list if item]  # Remove empty items
+
+                        action_items_dict = {}
+                        parent_task = None
+
+                        for item in action_items_list:
+                            if item.startswith("    "):  # Child task
+                                if parent_task:
+                                    action_items_dict[parent_task].append(item.strip())
+                            else:  # Parent task
+                                parent_task = item.strip()
+                                action_items_dict[parent_task] = []
+
+                        # Prepare data for AgGrid
+                        grid_data = []
+                        for idx, (parent, children) in enumerate(action_items_dict.items(), 1):
+                            grid_data.append({
+                                "Task Number": idx,
+                                "Task": parent,
+                                "Draft Email": False,
+                                "Draft Slack": False,
+                                "Draft Memo": False
+                            })
+
+                        # Convert list of dicts to DataFrame
+                        grid_df = pd.DataFrame(grid_data)
+
+                        # Configure AgGrid
+                        gb = GridOptionsBuilder.from_dataframe(grid_df)
+                        gb.configure_column("Draft Email", editable=True, cellEditor="agCheckboxCellEditor")
+                        gb.configure_column("Draft Slack", editable=True, cellEditor="agCheckboxCellEditor")
+                        gb.configure_column("Draft Memo", editable=True, cellEditor="agCheckboxCellEditor")
+                        gb.configure_pagination()
+                        gb.configure_default_column(editable=True, resizable=True)
+                        grid_options = gb.build()
+
+                        grid_response = AgGrid(grid_df, gridOptions=grid_options, height=300, fit_columns_on_grid_load=True, update_mode=GridUpdateMode.MODEL_CHANGED)
+
+                        # Handling the checkbox responses
+                        if isinstance(grid_response['data'], pd.DataFrame):
+                            for index, row in grid_response['data'].iterrows():
+                                if row["Draft Email"]:
+                                    st.session_state[f"email_prompt_{row['Task Number']}"] = f"Draft an email for the following action item: {row['Task']}"
+                                    row["Draft Email"] = False
+                                if row["Draft Slack"]:
+                                    st.session_state[f"slack_prompt_{row['Task Number']}"] = f"Draft a Slack message for the following action item: {row['Task']}"
+                                    row["Draft Slack"] = False
+                                if row["Draft Memo"]:
+                                    st.session_state[f"memo_prompt_{row['Task Number']}"] = f"Draft a memo for the following action item: {row['Task']}"
+                                    row["Draft Memo"] = False
+
+                        # Display generated drafts
+                        #st.write("### Generate Drafts")
+                        for key in st.session_state.keys():
+                            if key.startswith("email_prompt_"):
+                                task_num = key.split('_')[-1]
+                                st.subheader(f"Email Draft for Task {task_num}")
+                                st.write(st.session_state[key])
+                                if st.button(f"Generate Email for Task {task_num}"):
+                                    draft = generate_response(transcription, "gpt-4o", st.session_state[key])
+                                    st.write(draft)
+                            elif key.startswith("slack_prompt_"):
+                                task_num = key.split('_')[-1]
+                                st.subheader(f"Slack Draft for Task {task_num}")
+                                st.write(st.session_state[key])
+                                if st.button(f"Generate Slack for Task {task_num}"):
+                                    draft = generate_response(transcription, "gpt-4o", st.session_state[key])
+                                    st.write(draft)
+                            elif key.startswith("memo_prompt_"):
+                                task_num = key.split('_')[-1]
+                                st.subheader(f"Memo Draft for Task {task_num}")
+                                st.write(st.session_state[key])
+                                if st.button(f"Generate Memo for Task {task_num}"):
+                                    draft = generate_response(transcription, "gpt-4o", st.session_state[key])
+                                    st.write(draft)
 
 if __name__ == "__main__":
     main()
