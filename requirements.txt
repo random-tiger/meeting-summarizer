@@ -4,3 +4,4 @@ python-docx
 streamlit-quill
 moviepy
 streamlit-aggrid
+PyMuPDF
