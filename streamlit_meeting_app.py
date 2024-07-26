@@ -210,13 +210,6 @@ def main():
         unsafe_allow_html=True
     )
 
-    # Image URL
-    image_path = "https://raw.githubusercontent.com/random-tiger/meeting-summarizer/cb3239dbe10d47e8562660eb90500cc197f9c7a3/assets/images/wonk-logo.png"
-    
-    # Display the image in the sidebar
-    st.sidebar.image(image_path, use_column_width=True)
-    
-    # Sidebar title
     st.sidebar.title("Wonk")
 
     st.sidebar.info("Upload mp3, mp4, mov, docx, txt, xlsx, pdf, pptx, or image files to start!")
