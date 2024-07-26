@@ -5,3 +5,4 @@ streamlit-quill
 moviepy
 streamlit-aggrid
 PyMuPDF
+python-pptx
