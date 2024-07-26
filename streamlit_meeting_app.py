@@ -210,7 +210,7 @@ def main():
         unsafe_allow_html=True
     )
 
-    st.sidebar.title("Chief of Staff - A helpul assistant")
+    st.sidebar.title("Chief of Staff Assistant")
 
     st.sidebar.info("Upload mp3, mp4, mov, docx, txt, xlsx, pdf, pptx, or image files to start!")
     uploaded_files = st.sidebar.file_uploader("Upload audio, video, text, or image files", type=["mp3", "mp4", "mov", "docx", "txt", "xlsx", "pdf", "pptx", "jpg", "jpeg", "png"], accept_multiple_files=True)
