@@ -210,11 +210,15 @@ def main():
         unsafe_allow_html=True
     )
 
-    # Image URL
-    image_path = "https://raw.githubusercontent.com/random-tiger/meeting-summarizer/cb3239dbe10d47e8562660eb90500cc197f9c7a3/assets/images/wonk-logo.png"
+    # Image URL and favicon URL
+    image_url = "https://raw.githubusercontent.com/random-tiger/meeting-summarizer/cb3239dbe10d47e8562660eb90500cc197f9c7a3/assets/images/wonk-logo.png"
+    favicon_url = "https://raw.githubusercontent.com/random-tiger/meeting-summarizer/cb3239dbe10d47e8562660eb90500cc197f9c7a3/assets/images/wonk-logo.png"
     
-    # Display the image in the sidebar
-    st.sidebar.image(image_path, use_column_width=True)
+    # Set page configuration with favicon
+    st.set_page_config(page_title="Wonk", page_icon=favicon_url)
+    
+    # Display the image in the sidebar with reduced size
+    st.sidebar.image(image_url, use_column_width=False, width=100)  # Adjust width as needed
     
     # Sidebar title
     st.sidebar.title("Wonk")
