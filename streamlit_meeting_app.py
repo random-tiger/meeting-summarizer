@@ -210,6 +210,9 @@ def main():
         unsafe_allow_html=True
     )
 
+    image_path = "https://github.com/random-tiger/meeting-summarizer/blob/cb3239dbe10d47e8562660eb90500cc197f9c7a3/assets/images/wonk-logo.png"
+    st.image(image_path, use_column_width=True)
+    
     st.sidebar.title("Wonk")
 
     st.sidebar.info("Upload mp3, mp4, mov, docx, txt, xlsx, pdf, pptx, or image files to start!")
