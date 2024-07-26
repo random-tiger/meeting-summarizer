@@ -221,7 +221,7 @@ def main():
     st.sidebar.image(image_url, use_column_width=False, width=25)  # Adjust width as needed
     
     # Sidebar title
-    st.sidebar.title("Wonk")
+    # st.sidebar.title("Wonk")
 
     st.sidebar.info("Upload mp3, mp4, mov, docx, txt, xlsx, pdf, pptx, or image files to start!")
     uploaded_files = st.sidebar.file_uploader("Upload audio, video, text, or image files", type=["mp3", "mp4", "mov", "docx", "txt", "xlsx", "pdf", "pptx", "jpg", "jpeg", "png"], accept_multiple_files=True)
