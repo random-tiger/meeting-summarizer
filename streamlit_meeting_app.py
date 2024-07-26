@@ -154,7 +154,7 @@ pre_canned_prompts = {
             "heading": "Key Points"
         },
         "action_items": {
-            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely. Each task should be formatted as follows: Topic. Description of the task. The person the task is assigned to. Do not use sub-bullets because the whole payload is going to be parsed out and sent to another AI assistant for processing.",
+            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely.",
             "heading": "Action Items"
         },
         "sentiment": {
@@ -182,7 +182,7 @@ pre_canned_prompts = {
     },
     "action_items": {
         "action_items": {
-            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely. Each task should be formatted as follows: Topic. Description of the task. The person the task is assigned to. Do not use sub-bullets because the whole payload is going to be parsed out and sent to another AI assistant for processing.",
+            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely. Each task should be formatted as follows: Topic. Description of the task. Do not use sub-bullets.",
             "heading": "Action Items"
         }
     }
