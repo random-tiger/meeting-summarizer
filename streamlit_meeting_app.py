@@ -7,8 +7,13 @@ import moviepy.editor as mp
 import tempfile
 import docx
 import pandas as pd
+import fitz
+import base64
+import requests
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_quill import st_quill
+from pptx import Presentation
+from PIL import Image
 
 api_key = st.secrets["OPENAI_API_KEY"]
 
@@ -71,6 +76,71 @@ def read_docx(file):
 # Function to read text from a .txt file
 def read_txt(file):
     return file.read().decode("utf-8")
+
+# Function to read text from an Excel file
+def read_excel(file):
+    df = pd.read_excel(file)
+    return df.to_string(index=False)
+
+# Function to read text from a PDF file
+def read_pdf(file):
+    document = fitz.open(stream=file.read(), filetype="pdf")
+    text = ""
+    for page_num in range(len(document)):
+        page = document.load_page(page_num)
+        text += page.get_text()
+    return text
+
+# Function to read text from a PowerPoint file
+def read_pptx(file):
+    presentation = Presentation(file)
+    text = ""
+    for slide in presentation.slides:
+        for shape in slide.shapes:
+            if hasattr(shape, "text"):
+                text += shape.text + "\n"
+    return text
+
+# Function to encode image to base64
+def encode_image(image):
+    with BytesIO() as buffer:
+        image.save(buffer, format=image.format)
+        return base64.b64encode(buffer.getvalue()).decode()
+
+# Function to transcribe image using GPT-4's multimodal capabilities
+def transcribe_image(image_file):
+    image = Image.open(image_file)
+    base64_image = encode_image(image)
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}"
+    }
+
+    payload = {
+        "model": "gpt-4o-mini",  # Assuming "gpt-4o-mini" is the model with vision capabilities
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "What’s in this image?"
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 300
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    return response.json()['choices'][0]['message']['content']
 
 # Pre-canned prompts and their respective headings
 pre_canned_prompts = {
@@ -140,10 +210,10 @@ def main():
         unsafe_allow_html=True
     )
 
-    st.sidebar.title("Chief of Staff Assistant")
+    st.sidebar.title("Options")
 
-    st.sidebar.info("Upload mp3, mp4, mov, docx, or txt files to start!")
-    uploaded_files = st.sidebar.file_uploader("Upload audio, video, or text files", type=["mp3", "mp4", "mov", "docx", "txt"], accept_multiple_files=True)
+    st.sidebar.info("Upload mp3, mp4, mov, docx, txt, xlsx, pdf, pptx, or image files to start!")
+    uploaded_files = st.sidebar.file_uploader("Upload audio, video, text, or image files", type=["mp3", "mp4", "mov", "docx", "txt", "xlsx", "pdf", "pptx", "jpg", "jpeg", "png"], accept_multiple_files=True)
     process_files = st.sidebar.button("Process Files")
 
     if uploaded_files is not None and process_files:
@@ -163,6 +233,14 @@ def main():
                 st.session_state.transcriptions.append(read_docx(uploaded_file))
             elif uploaded_file.type == "text/plain":
                 st.session_state.transcriptions.append(read_txt(uploaded_file))
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                st.session_state.transcriptions.append(read_excel(uploaded_file))
+            elif uploaded_file.type == "application/pdf":
+                st.session_state.transcriptions.append(read_pdf(uploaded_file))
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                st.session_state.transcriptions.append(read_pptx(uploaded_file))
+            elif uploaded_file.type in ["image/jpeg", "image/png"]:
+                st.session_state.transcriptions.append(transcribe_image(uploaded_file))
 
         if st.session_state.transcriptions:
             combined_transcription = "\n\n".join(st.session_state.transcriptions)
