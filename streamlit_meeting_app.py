@@ -218,7 +218,7 @@ def main():
     st.set_page_config(page_title="Wonk", page_icon=favicon_url)
     
     # Display the image in the sidebar with reduced size
-    st.sidebar.image(image_url, use_column_width=False, width=100)  # Adjust width as needed
+    st.sidebar.image(image_url, use_column_width=False, width=25)  # Adjust width as needed
     
     # Sidebar title
     st.sidebar.title("Wonk")
