@@ -1,8 +1,12 @@
 streamlit
 openai
 python-docx
-streamlit-quill
-moviepy
-streamlit-aggrid
+pandas
 PyMuPDF
+Pillow
+moviepy
+requests
 python-pptx
+streamlit-aggrid
+streamlit-quill
+
