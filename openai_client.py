@@ -4,8 +4,10 @@ from openai import OpenAI
 
 class OpenAIClient:
     def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.client = OpenAI(api_key=self.api_key)
+        self.api_key = st.secrets["OPENAI_API_KEY"]
+        if not self.api_key:
+            raise ValueError("API key is not set. Please set the OPENAI_API_KEY in Streamlit secrets.")
+        self.client = openai.OpenAI(api_key=self.api_key)
 
     def transcribe_audio(self, audio_file):
         transcription = self.client.audio.transcriptions.create(model="whisper-1", file=audio_file)
