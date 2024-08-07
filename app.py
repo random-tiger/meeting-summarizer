@@ -1,6 +1,6 @@
 import streamlit as st
 from openai_client import OpenAIClient
-from file_handlers import (read_docx, read_txt, read_excel, read_pdf, read_pptx, convert_video_to_mp3, transcribe_image)
+from file_handlers import (read_docx, read_txt, read_excel, read_pdf, read_pptx, convert_video_to_mp3)
 from docx import Document
 from io import BytesIO
 import pandas as pd
@@ -8,6 +8,13 @@ import tempfile
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_quill import st_quill
 import moviepy.editor as mp
+import base64
+from PIL import Image
+
+def encode_image(image):
+    with BytesIO() as buffer:
+        image.save(buffer, format=image.format)
+        return base64.b64encode(buffer.getvalue()).decode()
 
 openai_client = OpenAIClient()
 
@@ -72,7 +79,9 @@ def main():
             elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
                 st.session_state.transcriptions.append(read_pptx(uploaded_file))
             elif uploaded_file.type in ["image/jpeg", "image/png"]:
-                st.session_state.transcriptions.append(transcribe_image(uploaded_file))
+                image = Image.open(uploaded_file)
+                base64_image = encode_image(image)
+                st.session_state.transcriptions.append(openai_client.transcribe_image(base64_image))
 
         if st.session_state.transcriptions:
             combined_transcription = "\n\n".join(st.session_state.transcriptions)
