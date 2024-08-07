@@ -1,16 +1,12 @@
 import streamlit as st
 from openai_client import OpenAIClient
-from pre_canned_prompts import pre_canned_prompts
 from file_handlers import (read_docx, read_txt, read_excel, read_pdf, read_pptx, convert_video_to_mp3, transcribe_image)
 from docx import Document
 from io import BytesIO
 import pandas as pd
 import tempfile
-import base64
-import requests
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_quill import st_quill
-from PIL import Image
 import moviepy.editor as mp
 
 openai_client = OpenAIClient()
@@ -246,7 +242,6 @@ def main():
                                 row["Draft Memo"] = False
 
                     # Display generated drafts
-                    #st.write("### Generate Drafts")
                     for key in st.session_state.keys():
                         if key.startswith("email_prompt_"):
                             task_num = key.split('_')[-1]
