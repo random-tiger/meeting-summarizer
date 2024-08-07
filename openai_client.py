@@ -12,7 +12,7 @@ class OpenAIClient:
         return transcription['text'] if isinstance(transcription, dict) else transcription.text
 
     def generate_response(self, transcription, model, custom_prompt):
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model=model,
             temperature=0,
             messages=[
