@@ -1,19 +1,18 @@
-import os
-import requests
+import openai
 import streamlit as st
-from openai import OpenAI
+import requests
 
 class OpenAIClient:
     def __init__(self):
         self.api_key = st.secrets["OPENAI_API_KEY"]
-        self.client = OpenAI(api_key=self.api_key)
+        openai.api_key = self.api_key
 
     def transcribe_audio(self, audio_file):
-        transcription = self.client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+        transcription = openai.Audio.transcribe(model="whisper-1", file=audio_file)
         return transcription['text'] if isinstance(transcription, dict) else transcription.text
 
     def generate_response(self, transcription, model, custom_prompt):
-        response = self.client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model=model,
             temperature=0,
             messages=[
@@ -21,7 +20,7 @@ class OpenAIClient:
                 {"role": "user", "content": transcription}
             ]
         )
-        return response.choices[0].message.content
+        return response.choices[0].message['content']
 
     def transcribe_image(self, base64_image):
         headers = {
@@ -30,7 +29,7 @@ class OpenAIClient:
         }
 
         payload = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-4o-mini",  # Assuming "gpt-4o-mini" is the model with vision capabilities
             "messages": [
                 {
                     "role": "user",
@@ -54,5 +53,3 @@ class OpenAIClient:
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
         response.raise_for_status()
         return response.json()['choices'][0]['message']['content']
-
-
