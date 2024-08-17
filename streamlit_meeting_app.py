@@ -87,7 +87,7 @@ def transcribe_image(image_file):
     }
 
     payload = {
-        "model": "gpt-4o-mini",  # Assuming "gpt-4o-mini" is the model with vision capabilities
+        "model": "gpt-4o-mini",
         "messages": [
             {
                 "role": "user",
@@ -331,7 +331,7 @@ def main():
                     if checked:
                         st.session_state.prompts.append({
                             "prompt": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["prompt"],
-                            "model": "gpt-4o",
+                            "model": "gpt-4o-mini",
                             "heading": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["heading"]
                         })
 
@@ -428,7 +428,7 @@ def main():
                             st.subheader(f"{key.split('_')[0].capitalize()} Draft for Task {task_num}")
                             st.write(value)
                             if st.button(f"Generate {key.split('_')[0].capitalize()} for Task {task_num}"):
-                                draft = generate_response(st.session_state.transcription, "gpt-4o", value)
+                                draft = generate_response(st.session_state.transcription, "gpt-4o-mini", value)
                                 st.write(draft)
 
 if __name__ == "__main__":
