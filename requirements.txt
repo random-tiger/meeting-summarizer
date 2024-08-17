@@ -9,4 +9,5 @@ requests
 python-pptx
 streamlit-aggrid
 streamlit-quill
-
+openpyxl
+defusedxml
