@@ -14,19 +14,26 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_quill import st_quill
 from pptx import Presentation
 from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
+import openpyxl
+from openpyxl.drawing.image import Image as OpenpyxlImage
+from pre_canned_prompts_file import pre_canned_prompts
+from openpyxl import load_workbook
+from defusedxml.common import DefusedXmlException
+import defusedxml.ElementTree as ET
 
 api_key = st.secrets["OPENAI_API_KEY"]
 
 # Initialize OpenAI client
 client = OpenAI(api_key=api_key)
 
-# Function to transcribe audio using Whisper
 def transcribe_audio(audio_file):
+    """Transcribe audio using Whisper model."""
     transcription = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
     return transcription['text'] if isinstance(transcription, dict) else transcription.text
 
-# Function to generate response based on prompt and model
 def generate_response(transcription, model, custom_prompt):
+    """Generate AI response based on the provided transcription and model."""
     response = client.chat.completions.create(
         model=model,
         temperature=0,
@@ -37,80 +44,42 @@ def generate_response(transcription, model, custom_prompt):
     )
     return response.choices[0].message.content
 
-# Function to save meeting minutes as a Word document
 def save_as_docx(minutes):
+    """Save the generated meeting minutes as a Word document."""
     doc = Document()
     for key, value in minutes.items():
-        heading = ' '.join(word.capitalize() for word in key.split('_'))
-        doc.add_heading(heading, level=1)
+        doc.add_heading(key.replace('_', ' ').title(), level=1)
         doc.add_paragraph(value)
-        doc.add_paragraph()
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
     return buffer
 
-# Function to convert video files to .mp3
 def convert_video_to_mp3(uploaded_file, suffix):
+    """Convert video files to MP3 format."""
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_video_file:
         temp_video_file.write(uploaded_file.getbuffer())
         temp_video_file_path = temp_video_file.name
 
     video = mp.VideoFileClip(temp_video_file_path)
 
-    if video.audio is None:
+    if not video.audio:
         st.error(f"The uploaded {suffix} file does not contain an audio track.")
         return None
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as audio_file:
-        audio_file_path = audio_file.name
+        video.audio.write_audiofile(audio_file.name)
+        return audio_file.name
 
-    video.audio.write_audiofile(audio_file_path)
-    return audio_file_path
-
-# Function to read text from a .docx file
-def read_docx(file):
-    doc = docx.Document(file)
-    return "\n".join([para.text for para in doc.paragraphs])
-
-# Function to read text from a .txt file
-def read_txt(file):
-    return file.read().decode("utf-8")
-
-# Function to read text from an Excel file
-def read_excel(file):
-    df = pd.read_excel(file)
-    return df.to_string(index=False)
-
-# Function to read text from a PDF file
-def read_pdf(file):
-    document = fitz.open(stream=file.read(), filetype="pdf")
-    text = ""
-    for page_num in range(len(document)):
-        page = document.load_page(page_num)
-        text += page.get_text()
-    return text
-
-# Function to read text from a PowerPoint file
-def read_pptx(file):
-    presentation = Presentation(file)
-    text = ""
-    for slide in presentation.slides:
-        for shape in slide.shapes:
-            if hasattr(shape, "text"):
-                text += shape.text + "\n"
-    return text
-
-# Function to encode image to base64
 def encode_image(image):
+    """Encode an image to Base64 format."""
     with BytesIO() as buffer:
         image.save(buffer, format=image.format)
         return base64.b64encode(buffer.getvalue()).decode()
 
-# Function to transcribe image using GPT-4's multimodal capabilities
 def transcribe_image(image_file):
-    image = Image.open(image_file)
-    base64_image = encode_image(image)
+    """Transcribe image using GPT-4's multimodal capabilities."""
+    base64_image = encode_image(image_file)
 
     headers = {
         "Content-Type": "application/json",
@@ -123,16 +92,8 @@ def transcribe_image(image_file):
             {
                 "role": "user",
                 "content": [
-                    {
-                        "type": "text",
-                        "text": "What’s in this image?"
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
-                    }
+                    {"type": "text", "text": "What’s in this image?"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                 ]
             }
         ],
@@ -142,55 +103,122 @@ def transcribe_image(image_file):
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()['choices'][0]['message']['content']
 
-# Pre-canned prompts and their respective headings
-pre_canned_prompts = {
-    "meeting_summary": {
-        "summary": {
-            "prompt": "You are a highly skilled AI trained in language comprehension and summarization. I would like you to read the following text and summarize it into a concise abstract paragraph. Aim to retain the most important points, providing a coherent and readable summary that could help a person understand the main points of the discussion without needing to read the entire text. Please avoid unnecessary details or tangential points.",
-            "heading": "Summary"
-        },
-        "key_points": {
-            "prompt": "You are a proficient AI with a specialty in distilling information into key points. Based on the following text, identify and list the main points that were discussed or brought up. These should be the most important ideas, findings, or topics that are crucial to the essence of the discussion. Your goal is to provide a list that someone could read to quickly understand what was talked about.",
-            "heading": "Key Points"
-        },
-        "action_items": {
-            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely.",
-            "heading": "Action Items"
-        },
-        "sentiment": {
-            "prompt": "As an AI with expertise in language and emotion analysis, your task is to analyze the sentiment of the following text. Please consider the overall tone of the discussion, the emotion conveyed by the language used, and the context in which words and phrases are used. Indicate whether the sentiment is generally positive, negative, or neutral, and provide brief explanations for your analysis where possible.",
-            "heading": "Sentiment Analysis"
-        }
-    },
-    "user_research": {
-        "summary": {
-            "prompt": "You are a highly skilled AI trained in language comprehension and summarization. I would like you to read the following text and summarize it into a concise abstract paragraph. Aim to retain the most important points, providing a coherent and readable summary that could help a person understand the main points of the discussion without needing to read the entire text. Please avoid unnecessary details or tangential points.",
-            "heading": "Summary"
-        },
-        "biographical_info": {
-            "prompt": "You are a proficient AI with a specialty in distilling biographical information about people. Based on the following text, please identify biographical information about the subject of the research study.",
-            "heading": "Biographical Info"
-        },
-        "key_insights": {
-            "prompt": "You are a proficient AI with a specialty in distilling information into key points. Based on the following user research transcript, please identify the key insights. Identify and list the main points that were discussed or brought up. These should be the most important ideas, findings, or topics that are crucial to the essence of the discussion. Your goal is to provide a list that someone could read to quickly understand what was talked about.",
-            "heading": "Key Insights"
-        },
-        "recommendations": {
-            "prompt": "You are a proficient AI with a specialty in identifying meaningful product opportunities. Based on the transcript, please identify product recommendations/opportunities.",
-            "heading": "Recommendations"
-        }
-    },
-    "action_items": {
-        "action_items": {
-            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely. Each task should be formatted as follows: Topic. Description of the task. Do not use sub-bullets.",
-            "heading": "Action Items"
-        }
-    }
-}
+def process_images_concurrently(images):
+    """Process and transcribe images concurrently."""
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        transcriptions = list(executor.map(transcribe_image, images))
+    return transcriptions
 
-# Streamlit app
+def read_docx(file):
+    """Read text and images from a DOCX file."""
+    doc = docx.Document(file)
+    result = ""
+    images = []
+
+    for para in doc.paragraphs:
+        result += para.text + "\n"
+
+    # Loop through all elements in the document to find images
+    for rel in doc.part.rels.values():
+        if "image" in rel.target_ref:
+            image_data = rel.target_part.blob  # Retrieve image binary data
+            image = Image.open(BytesIO(image_data))
+            images.append(image)
+
+    if images:
+        image_transcriptions = process_images_concurrently(images)
+        for transcription in image_transcriptions:
+            result += f"\n[Image: {transcription}]\n"
+
+    return result
+
+def read_pdf(file):
+    """Read text and images from a PDF file."""
+    document = fitz.open(stream=file.read(), filetype="pdf")
+    result = ""
+    images = []
+
+    for page_num in range(len(document)):
+        page = document.load_page(page_num)
+        page_text = page.get_text()
+        result += f"\nPage {page_num + 1}\n{page_text}"
+
+        page_images = []
+        for img in page.get_images(full=True):
+            xref = img[0]
+            base_image = document.extract_image(xref)
+            image = Image.open(BytesIO(base_image["image"]))
+            page_images.append(image)
+
+        if page_images:
+            image_transcriptions = process_images_concurrently(page_images)
+            for transcription in image_transcriptions:
+                result += f"\n[Image on page {page_num + 1}: {transcription}]\n"
+
+    return result
+
+def read_pptx(file):
+    """Read text and images from a PowerPoint file."""
+    presentation = Presentation(file)
+    result = ""
+
+    for slide_num, slide in enumerate(presentation.slides, start=1):
+        slide_text = ""
+        images = []
+
+        for shape in slide.shapes:
+            if hasattr(shape, "text"):
+                slide_text += shape.text + "\n"
+
+            # Ensure to correctly handle image shapes
+            if hasattr(shape, "image"):
+                image = shape.image
+                image_stream = image.blob  # Retrieve image binary data
+                image = Image.open(BytesIO(image_stream))
+                images.append(image)
+
+        result += f"Slide {slide_num}:\n{slide_text}"
+
+        if images:
+            image_transcriptions = process_images_concurrently(images)
+            for transcription in image_transcriptions:
+                result += f"\n[Image: {transcription}]\n"
+
+    return result
+
+def read_txt(file):
+    """Read text from a TXT file."""
+    return file.read().decode("utf-8")
+
+def read_excel(file):
+    """Read text and images from an Excel file."""
+    wb = openpyxl.load_workbook(file)
+    result = ""
+    images = []
+
+    for sheet in wb.sheetnames:
+        ws = wb[sheet]
+        result += f"Sheet: {sheet}\n"
+
+        # Reading text content
+        for row in ws.iter_rows(values_only=True):
+            result += "\t".join([str(cell) if cell is not None else "" for cell in row]) + "\n"
+
+        # Reading images
+        for img in ws._images:
+            img_stream = img._data()  # Retrieve image binary data
+            image = Image.open(BytesIO(img_stream))
+            images.append(image)
+
+    if images:
+        image_transcriptions = process_images_concurrently(images)
+        for transcription in image_transcriptions:
+            result += f"\n[Image: {transcription}]\n"
+
+    return result
+
+
 def main():
-    # Custom CSS to set app width and reduce gutter space
     st.markdown(
         """
         <style>
@@ -198,7 +226,7 @@ def main():
             padding-left: 0rem;
             padding-right: 0rem;
             max-width: 100%;
-            margin: 0 auto;
+            margin: 0 auto.
         }
         .css-18e3th9 {
             flex: 1 1 100%;
@@ -206,105 +234,106 @@ def main():
             padding: 2rem 1rem 1rem;
         }
         </style>
-        """,
-        unsafe_allow_html=True
+        """, unsafe_allow_html=True
     )
 
     st.sidebar.title("Wonk")
-
     st.sidebar.info("Upload mp3, mp4, mov, docx, txt, xlsx, pdf, pptx, or image files to start!")
     uploaded_files = st.sidebar.file_uploader("Upload audio, video, text, or image files", type=["mp3", "mp4", "mov", "docx", "txt", "xlsx", "pdf", "pptx", "jpg", "jpeg", "png"], accept_multiple_files=True)
     process_files = st.sidebar.button("Process Files")
 
-    if uploaded_files is not None and process_files:
-        if "transcriptions" not in st.session_state:
-            st.session_state.transcriptions = []
+    if uploaded_files and process_files:
+        st.session_state.setdefault('transcriptions', [])
+        progress_bar = st.progress(0)
+        total_files = len(uploaded_files)
 
-        for uploaded_file in uploaded_files:
-            if uploaded_file.type in ["video/quicktime", "video/mp4"]:
-                suffix = ".mov" if uploaded_file.type == "video/quicktime" else ".mp4"
-                audio_file_path = convert_video_to_mp3(uploaded_file, suffix)
-                if audio_file_path is not None:
-                    with open(audio_file_path, "rb") as f:
-                        st.session_state.transcriptions.append(transcribe_audio(f))
-            elif uploaded_file.type == "audio/mpeg":
-                st.session_state.transcriptions.append(transcribe_audio(uploaded_file))
-            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                st.session_state.transcriptions.append(read_docx(uploaded_file))
-            elif uploaded_file.type == "text/plain":
-                st.session_state.transcriptions.append(read_txt(uploaded_file))
-            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-                st.session_state.transcriptions.append(read_excel(uploaded_file))
-            elif uploaded_file.type == "application/pdf":
-                st.session_state.transcriptions.append(read_pdf(uploaded_file))
-            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-                st.session_state.transcriptions.append(read_pptx(uploaded_file))
-            elif uploaded_file.type in ["image/jpeg", "image/png"]:
-                st.session_state.transcriptions.append(transcribe_image(uploaded_file))
+        status_placeholder = st.empty()
+
+        # Stage 1: Files Uploaded
+        status_placeholder.info("Files uploaded successfully!")
+        progress_bar.progress(0.1)
+
+        # Initial processing stage
+        for i, uploaded_file in enumerate(uploaded_files):
+            with status_placeholder.container():
+                status_placeholder.info(f"Processing {uploaded_file.name} ({i + 1}/{total_files})...")
+
+            with st.spinner(f"Processing {uploaded_file.name}..."):
+                # Handle different file types and process accordingly
+                if uploaded_file.type in ["video/quicktime", "video/mp4"]:
+                    status_placeholder.info("Converting video to audio...")
+                    progress_bar.progress(0.2)
+                    audio_file_path = convert_video_to_mp3(uploaded_file, ".mov" if uploaded_file.type == "video/quicktime" else ".mp4")
+                    if audio_file_path:
+                        with open(audio_file_path, "rb") as f:
+                            status_placeholder.info("Transcribing audio...")
+                            progress_bar.progress(0.5)
+                            st.session_state.transcriptions.append(transcribe_audio(f))
+                elif uploaded_file.type == "audio/mpeg":
+                    status_placeholder.info("Transcribing audio file...")
+                    progress_bar.progress(0.5)
+                    st.session_state.transcriptions.append(transcribe_audio(uploaded_file))
+                elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    status_placeholder.info("Reading DOCX file...")
+                    progress_bar.progress(0.2)
+                    st.session_state.transcriptions.append(read_docx(uploaded_file))
+                elif uploaded_file.type == "text/plain":
+                    status_placeholder.info("Reading TXT file...")
+                    progress_bar.progress(0.2)
+                    st.session_state.transcriptions.append(read_txt(uploaded_file))
+                elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                    status_placeholder.info("Reading Excel file...")
+                    progress_bar.progress(0.2)
+                    st.session_state.transcriptions.append(read_excel(uploaded_file))
+                elif uploaded_file.type == "application/pdf":
+                    status_placeholder.info("Reading PDF file...")
+                    progress_bar.progress(0.2)
+                    st.session_state.transcriptions.append(read_pdf(uploaded_file))
+                elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                    status_placeholder.info("Reading PowerPoint file...")
+                    progress_bar.progress(0.2)
+                    st.session_state.transcriptions.append(read_pptx(uploaded_file))
+                elif uploaded_file.type in ["image/jpeg", "image/png"]:
+                    status_placeholder.info("Transcribing image...")
+                    progress_bar.progress(0.5)
+                    st.session_state.transcriptions.append(transcribe_image(Image.open(uploaded_file)))
+
+            # Update the progress bar after processing each file
+            progress_bar.progress(0.2 + (0.7 * (i + 1) / total_files))
+
+        # Stage 3: Processing Complete
+        status_placeholder.success("All files processed successfully!")
+        progress_bar.progress(1.0)
 
         if st.session_state.transcriptions:
-            combined_transcription = "\n\n".join(st.session_state.transcriptions)
-            st.session_state.transcription = combined_transcription
+            st.session_state.transcription = "\n\n".join(st.session_state.transcriptions)
 
     if "transcription" in st.session_state:
-        transcription = st.session_state.transcription
         with st.expander("Transcription", expanded=True):
             st.subheader("Transcription")
-            edited_transcription = st_quill(value=transcription, key='transcription_editor')
-            st.session_state.transcription = edited_transcription
+            st.session_state.transcription = st_quill(value=st.session_state.transcription, key='transcription_editor')
 
         st.sidebar.info("Select what you'd like to create!")
-        summary_type = st.sidebar.radio(
-            "Select the type of summary you want to generate:",
-            ("", "Meeting Summary", "User Research Synthesis", "Action Items"),
-            index=0
-        )
+        summary_type = st.sidebar.radio("Select the type of summary you want to generate:", ["Meeting Summary", "User Research", "Action Items", "Retro", "Document Review"], index=0)
 
-        if 'prompts' not in st.session_state:
-            st.session_state.prompts = []
+        st.session_state.setdefault('prompts', [])
 
         checkboxes = {}
-        if summary_type == "Meeting Summary":
-            st.sidebar.markdown("### Meeting Summary Prompts")
+        if summary_type:
+            st.sidebar.markdown(f"### {summary_type} Prompts")
             st.sidebar.info("Select the sections you'd like in your document!")
-            checkboxes = {
-                "summary": st.sidebar.checkbox("Summary"),
-                "key_points": st.sidebar.checkbox("Key Points"),
-                "action_items": st.sidebar.checkbox("Action Items"),
-                "sentiment": st.sidebar.checkbox("Sentiment Analysis")
-            }
-
-        elif summary_type == "User Research Synthesis":
-            st.sidebar.markdown("### User Research Synthesis Prompts")
-            st.sidebar.info("Select the sections you'd like in your document!")
-            checkboxes = {
-                "summary": st.sidebar.checkbox("Summary", key="user_summary"),
-                "biographical_info": st.sidebar.checkbox("Biographical Info"),
-                "key_insights": st.sidebar.checkbox("Key Insights"),
-                "recommendations": st.sidebar.checkbox("Recommendations")
-            }
-
-        elif summary_type == "Action Items":
-            st.sidebar.markdown("### Action Items Prompt")
-            st.sidebar.info("Select the section to generate action items!")
-            checkboxes = {
-                "action_items": st.sidebar.checkbox("Action Items", key="action_items")
-            }
+            checkboxes = {key: st.sidebar.checkbox(heading["heading"]) for key, heading in pre_canned_prompts[summary_type.lower().replace(" ", "_")].items()}
 
         if any(checkboxes.values()):
             st.sidebar.info("Click 'Create GPT Tasks' to proceed")
             if st.sidebar.button("Create GPT Tasks"):
                 for key, checked in checkboxes.items():
                     if checked:
-                        try:
-                            st.session_state.prompts.append({
-                                "prompt": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["prompt"],
-                                "model": "gpt-4o",
-                                "heading": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["heading"]
-                            })
-                        except KeyError as e:
-                            st.error(f"KeyError: {e} - summary_type: {summary_type.lower().replace(' ', '_')}, key: {key}")
-                            st.stop()
+                        st.session_state.prompts.append({
+                            "prompt": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["prompt"],
+                            "model": "gpt-4o",
+                            "heading": pre_canned_prompts[summary_type.lower().replace(" ", "_")][key]["heading"]
+                        })
 
         for i, prompt_info in enumerate(st.session_state.prompts):
             with st.expander(f"GPT Task {i+1} - {prompt_info['heading']}", expanded=True):
@@ -325,17 +354,12 @@ def main():
                     color: white !important;
                 }
                 </style>
-                """,
-                unsafe_allow_html=True
+                """, unsafe_allow_html=True
             )
-            if st.button("Generate", key="generate", help=None, on_click=None, disabled=False, use_container_width=False):
-                minutes = {}
-                for i, prompt_info in enumerate(st.session_state.prompts):
-                    task_key = prompt_info["heading"] if prompt_info["heading"] else f"Task {i+1}"
-                    minutes[task_key] = generate_response(st.session_state.transcription, prompt_info["model"], prompt_info["prompt"])
-                st.session_state.generated_minutes = minutes  # Store the generated minutes in session state
+            if st.button("Generate", key="generate"):
+                minutes = {prompt_info["heading"]: generate_response(st.session_state.transcription, prompt_info["model"], prompt_info["prompt"]) for prompt_info in st.session_state.prompts}
+                st.session_state.generated_minutes = minutes
 
-        # Display generated minutes if they exist in session state
         if 'generated_minutes' in st.session_state:
             with st.expander("Generated Minutes", expanded=True):
                 for key, value in st.session_state.generated_minutes.items():
@@ -357,35 +381,27 @@ def main():
                     st.subheader("Action Items")
                     action_items = st.session_state.generated_minutes["Action Items"]
                     st.info("Check boxes to generate documents from tasks!")
-                    action_items_list = action_items.split('\n')
-                    action_items_list = [item for item in action_items_list if item]  # Remove empty items
+                    action_items_list = [item for item in action_items.split('\n') if item]
 
                     action_items_dict = {}
                     parent_task = None
 
                     for item in action_items_list:
-                        if item.startswith("    "):  # Child task
+                        if item.startswith("    "):
                             if parent_task:
                                 action_items_dict[parent_task].append(item.strip())
-                        else:  # Parent task
+                        else:
                             parent_task = item.strip()
                             action_items_dict[parent_task] = []
 
-                    # Prepare data for AgGrid
-                    grid_data = []
-                    for idx, (parent, children) in enumerate(action_items_dict.items(), 1):
-                        grid_data.append({
-                            "Task Number": idx,
-                            "Task": parent,
-                            "Draft Email": False,
-                            "Draft Slack": False,
-                            "Draft Memo": False
-                        })
+                    grid_df = pd.DataFrame({
+                        "Task Number": range(1, len(action_items_dict) + 1),
+                        "Task": list(action_items_dict.keys()),
+                        "Draft Email": False,
+                        "Draft Slack": False,
+                        "Draft Memo": False
+                    })
 
-                    # Convert list of dicts to DataFrame
-                    grid_df = pd.DataFrame(grid_data)
-
-                    # Configure AgGrid
                     gb = GridOptionsBuilder.from_dataframe(grid_df)
                     gb.configure_column("Draft Email", editable=True, cellEditor="agCheckboxCellEditor")
                     gb.configure_column("Draft Slack", editable=True, cellEditor="agCheckboxCellEditor")
@@ -396,42 +412,23 @@ def main():
 
                     grid_response = AgGrid(grid_df, gridOptions=grid_options, height=300, fit_columns_on_grid_load=True, update_mode=GridUpdateMode.MODEL_CHANGED)
 
-                    # Handling the checkbox responses
                     if isinstance(grid_response['data'], pd.DataFrame):
-                        for index, row in grid_response['data'].iterrows():
+                        for _, row in grid_response['data'].iterrows():
+                            task_num = row['Task Number']
                             if row["Draft Email"]:
-                                st.session_state[f"email_prompt_{row['Task Number']}"] = f"Draft an email for the following action item: {row['Task']}"
-                                row["Draft Email"] = False
+                                st.session_state[f"email_prompt_{task_num}"] = f"Draft an email for the following action item: {row['Task']}"
                             if row["Draft Slack"]:
-                                st.session_state[f"slack_prompt_{row['Task Number']}"] = f"Draft a Slack message for the following action item: {row['Task']}"
-                                row["Draft Slack"] = False
+                                st.session_state[f"slack_prompt_{task_num}"] = f"Draft a Slack message for the following action item: {row['Task']}"
                             if row["Draft Memo"]:
-                                st.session_state[f"memo_prompt_{row['Task Number']}"] = f"Draft a memo for the following action item: {row['Task']}"
-                                row["Draft Memo"] = False
+                                st.session_state[f"memo_prompt_{task_num}"] = f"Draft a memo for the following action item: {row['Task']}"
 
-                    # Display generated drafts
-                    #st.write("### Generate Drafts")
-                    for key in st.session_state.keys():
-                        if key.startswith("email_prompt_"):
+                    for key, value in st.session_state.items():
+                        if key.startswith("email_prompt_") or key.startswith("slack_prompt_") or key.startswith("memo_prompt_"):
                             task_num = key.split('_')[-1]
-                            st.subheader(f"Email Draft for Task {task_num}")
-                            st.write(st.session_state[key])
-                            if st.button(f"Generate Email for Task {task_num}"):
-                                draft = generate_response(st.session_state.transcription, "gpt-4o", st.session_state[key])
-                                st.write(draft)
-                        elif key.startswith("slack_prompt_"):
-                            task_num = key.split('_')[-1]
-                            st.subheader(f"Slack Draft for Task {task_num}")
-                            st.write(st.session_state[key])
-                            if st.button(f"Generate Slack for Task {task_num}"):
-                                draft = generate_response(st.session_state.transcription, "gpt-4o", st.session_state[key])
-                                st.write(draft)
-                        elif key.startswith("memo_prompt_"):
-                            task_num = key.split('_')[-1]
-                            st.subheader(f"Memo Draft for Task {task_num}")
-                            st.write(st.session_state[key])
-                            if st.button(f"Generate Memo for Task {task_num}"):
-                                draft = generate_response(st.session_state.transcription, "gpt-4o", st.session_state[key])
+                            st.subheader(f"{key.split('_')[0].capitalize()} Draft for Task {task_num}")
+                            st.write(value)
+                            if st.button(f"Generate {key.split('_')[0].capitalize()} for Task {task_num}"):
+                                draft = generate_response(st.session_state.transcription, "gpt-4o", value)
                                 st.write(draft)
 
 if __name__ == "__main__":
