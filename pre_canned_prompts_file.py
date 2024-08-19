@@ -59,11 +59,11 @@ pre_canned_prompts = {
             "heading": "What Happened"
         },
         "what_went_well": {
-            "prompt": "You are an advanced AI specializing in identifying positive outcomes. List and describe what went well in the following text. Focus on highlighting successful aspects and positive outcomes without mentioning problems or areas for improvement. Where possible, use actual anecdotes and sizing of the feedback (e.g., the number or proportion of respondents with similar feedback). Do not include PII.",
+            "prompt": "You are an advanced AI specializing in identifying positive outcomes. List and describe what went well in the following text. Focus on highlighting successful aspects and positive outcomes without mentioning problems or areas for improvement. Where possible, use actual anecdotes and sizing of the feedback (e.g., the number or proportion of respondents with similar feedback). Do not include PII. Summarize into buketted, thematic categories.",
             "heading": "What Went Well"
         },
         "what_could_be_improved": {
-            "prompt": "You are an advanced AI specializing in identifying areas for improvement. List and describe what could be improved based on the following text. Focus on areas that did not go well and provide clear, actionable feedback for future improvement. Where possible, use actual anecdotes and sizing of the feedback (e.g., the number or proportion of respondents with similar feedback). Do not include PII.",
+            "prompt": "You are an advanced AI specializing in identifying areas for improvement. List and describe what could be improved based on the following text. Focus on areas that did not go well and provide clear, actionable feedback for future improvement. Where possible, use actual anecdotes and sizing of the feedback (e.g., the number or proportion of respondents with similar feedback). Do not include PII. Summarize into buketted, thematic categories.",
             "heading": "What Could Be Improved"
         },
         "next_steps_action_plan": {
