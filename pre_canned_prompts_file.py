@@ -1,5 +1,3 @@
-# pre_canned_prompt_file.py
-
 pre_canned_prompts = {
     "meeting_summary": {
         "summary": {
@@ -7,7 +5,7 @@ pre_canned_prompts = {
             "heading": "Summary"
         },
         "key_points": {
-            "prompt": "You are a proficient AI with a specialty in distilling information into key points. Based on the following text, identify and list the main points that were discussed or brought up. These should be the most important ideas, findings, or topics that are crucial to the essence of the discussion. Your goal is to provide a list that someone could read to quickly understand what was talked about.",
+            "prompt": "You are a proficient AI with a specialty in distilling information into key points. Based on the following text, identify and list the main points that were discussed or brought up and include the narrative / discussion around them so that readers understand the context. The key points should be the most important ideas, findings, or topics that are crucial to the essence of the discussion.",
             "heading": "Key Points"
         },
         "action_items": {
@@ -61,15 +59,15 @@ pre_canned_prompts = {
             "heading": "What Happened"
         },
         "what_went_well": {
-            "prompt": "You are an advanced AI specializing in identifying positive outcomes. List and describe what went well in the following text. Focus on highlighting successful aspects and positive outcomes without mentioning problems or areas for improvement. Do not include any titles or headings.",
+            "prompt": "You are an advanced AI specializing in identifying positive outcomes. List and describe what went well in the following text. Focus on highlighting successful aspects and positive outcomes without mentioning problems or areas for improvement. Where possible, use actual anecdotes and sizing of the feedback (e.g., the number or proportion of respondents with similar feedback). Do not include PII.",
             "heading": "What Went Well"
         },
         "what_could_be_improved": {
-            "prompt": "You are an advanced AI specializing in identifying areas for improvement. List and describe what could be improved based on the following text. Focus on areas that did not go well and provide clear, actionable feedback for future improvement. Do not include any titles or headings.",
+            "prompt": "You are an advanced AI specializing in identifying areas for improvement. List and describe what could be improved based on the following text. Focus on areas that did not go well and provide clear, actionable feedback for future improvement. Where possible, use actual anecdotes and sizing of the feedback (e.g., the number or proportion of respondents with similar feedback). Do not include PII.",
             "heading": "What Could Be Improved"
         },
-        "action_items": {
-            "prompt": "You are an AI expert in analyzing conversations and extracting action items. Please review the text and identify any tasks, assignments, or actions that were agreed upon or mentioned as needing to be done. These could be tasks assigned to specific individuals, or general actions that the group has decided to take. Please list these action items clearly and concisely.",
+        "next_steps_action_plan": {
+            "prompt": "You are an advanced AI specializing in creating action plans. Develop a detailed Next Steps / Action Plan based on the following text. Ensure this section includes concrete actions and recommended plans to address any gaps, failures, or areas for improvement identified.",
             "heading": "Action Items"
         }
     },
